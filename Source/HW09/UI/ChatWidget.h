@@ -7,7 +7,7 @@
 #include "WidgetAcceptable.h"
 #include "ChatWidget.generated.h"
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnChatCommittedSignature, const FText&, inputText, ETextCommit::Type, commitMethod);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnChatCommittedSignature, const FText&, inputText);
 
 /**
  * 
@@ -31,27 +31,32 @@ public:
 	FOnChatCommittedSignature onMessageCommitted;
 
 protected:
+	// 로그 Widget의 클래스
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TSubclassOf<UUserWidget> logWidgetClass;
+
 	// 채팅 로그를 관리하는 스크롤박스
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (BindWidget))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta = (BindWidget, AllowPrivateAccess = "true"))
 	TObjectPtr<class UScrollBox> chatLogScrollBox;
 
 	// 메시지 입력 영역을 관리하는 사이즈박스
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (BindWidget))
-	TObjectPtr<class USizeBox> inputRowSizeBox;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta = (BindWidget, AllowPrivateAccess = "true"))
+	TObjectPtr<class UHorizontalBox> inputRowHorizontalBox;
 
 	// 메시지를 입력받을 수 있는 텍스트박스
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (BindWidget))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta = (BindWidget, AllowPrivateAccess = "true"))
 	TObjectPtr<class UEditableTextBox> inputField;
 
 	// 전송버튼
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (BindWidgetOptional))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta = (BindWidget, AllowPrivateAccess = "true"))
 	TObjectPtr<class UButton> commitButton;
 
 public:
 	// 채팅 로그를 관리하는 ScrollBox에 Widget을 추가
 	UPanelSlot* AddChildWidget_Implementation(UUserWidget* widget) override;
 
-protected:
 	UFUNCTION(BlueprintCallable)
-	void OnInputFieldCommitted(const FText& inputText, ETextCommit::Type commitMethod);
+	void OnMessageCommitted(const FText& inputText, ETextCommit::Type commitMethod);
+
+	void OnMessageReceived(const FString& sender, const FString& message);
 };

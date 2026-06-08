@@ -1,11 +1,12 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "UI/ChatWidget.h"
+#include "ChatWidget.h"
 #include "Components/EditableTextBox.h"
+#include "Components/HorizontalBox.h"
 #include "Components/ScrollBox.h"
-#include "Components/SizeBox.h"
 #include "Components/Button.h"
+#include "ChatLogWidget.h"
 
 void UChatWidget::NativeConstruct()
 {
@@ -17,9 +18,9 @@ void UChatWidget::NativeConstruct()
 	}
 	if (IsValid(inputField) == true)
 	{
-		if (inputField->OnTextCommitted.IsAlreadyBound(this, &UChatWidget::OnInputFieldCommitted) == false)
+		if (inputField->OnTextCommitted.IsAlreadyBound(this, &UChatWidget::OnMessageCommitted) == false)
 		{
-			inputField->OnTextCommitted.AddDynamic(this, &UChatWidget::OnInputFieldCommitted);
+			inputField->OnTextCommitted.AddDynamic(this, &UChatWidget::OnMessageCommitted);
 		}
 	}
 }
@@ -28,23 +29,25 @@ void UChatWidget::NativeDestruct()
 {
 	if (IsValid(inputField) == true)
 	{
-		if (inputField->OnTextCommitted.IsAlreadyBound(this, &UChatWidget::OnInputFieldCommitted) == true)
+		if (inputField->OnTextCommitted.IsAlreadyBound(this, &UChatWidget::OnMessageCommitted) == true)
 		{
-			inputField->OnTextCommitted.RemoveDynamic(this, &UChatWidget::OnInputFieldCommitted);
+			inputField->OnTextCommitted.RemoveDynamic(this, &UChatWidget::OnMessageCommitted);
 		}
 	}
+
+	Super::NativeDestruct();
 }
 
 void UChatWidget::NativeOnMouseEnter(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
 {
 	Super::NativeOnMouseEnter(InGeometry, InMouseEvent);
-	//inputRowSizeBox->SetVisibility(ESlateVisibility::Visible);
+	//inputRowHorizontalBox->SetVisibility(ESlateVisibility::Visible);
 }
 
 void UChatWidget::NativeOnMouseLeave(const FPointerEvent& InMouseEvent)
 {
 	Super::NativeOnMouseLeave(InMouseEvent);
-	//inputRowSizeBox->SetVisibility(ESlateVisibility::Hidden);
+	//inputRowHorizontalBox->SetVisibility(ESlateVisibility::Hidden);
 }
 
 UPanelSlot* UChatWidget::AddChildWidget_Implementation(UUserWidget* widget)
@@ -52,20 +55,40 @@ UPanelSlot* UChatWidget::AddChildWidget_Implementation(UUserWidget* widget)
 	return chatLogScrollBox->AddChild(widget);
 }
 
-void UChatWidget::OnInputFieldCommitted(const FText& inputText, ETextCommit::Type commitMethod)
+void UChatWidget::OnMessageCommitted(const FText& inputText, ETextCommit::Type commitMethod)
 {
 	// 디버그 메시지 출력
-	GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Green, inputText.ToString());
+	UE_LOG(LogTemp, Display, TEXT("%s"), *inputText.ToString());
 
 	if (inputText.IsEmptyOrWhitespace() == true)
 	{
 		return;
 	}
 
+	FText commitMessage = inputText;
 	inputField->SetText(FText::GetEmpty());
 
-	if (onMessageCommitted.IsBound() == true)
+	if (GetOwningPlayer()->IsLocalController() == true)
 	{
-		onMessageCommitted.Broadcast(inputText, commitMethod);
+		if (onMessageCommitted.IsBound() == true)
+		{
+			onMessageCommitted.Broadcast(commitMessage);
+		}
+	}
+}
+
+void UChatWidget::OnMessageReceived(const FString& sender, const FString& message)
+{
+	// 로그 Widget 생성
+	UUserWidget* logWidget = CreateWidget<UChatLogWidget>(GetOwningPlayer(), logWidgetClass);
+
+	// ScrollBox에 Widget 추가
+	UPanelSlot* widgetSlot = chatLogScrollBox->AddChild(logWidget);
+
+	// 로그 내용 수정
+	if (UChatLogWidget* chatLog = Cast<UChatLogWidget>(logWidget))
+	{
+		chatLog->SetChatSenderName(sender);
+		chatLog->SetChatMessage(message);
 	}
 }

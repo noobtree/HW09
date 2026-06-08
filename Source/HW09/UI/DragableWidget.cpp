@@ -48,7 +48,7 @@ void UDragableWidget::NativeOnDragDetected(const FGeometry& InGeometry, const FP
 	opper->draggedWidget = this;
 	opper->dragOffset = InGeometry.AbsoluteToLocal(InMouseEvent.GetScreenSpacePosition());
 	opper->undoParentWidget = GetParent();
-
+	opper->widgetSizeDelta = InGeometry.GetLocalSize();
 	opper->DefaultDragVisual = IsValid(dragVisualWidgetClass) == true ? CreateWidget(GetOwningPlayer(), dragVisualWidgetClass) : this;
 	SetColorAndOpacity(FLinearColor(1, 1, 1, 0.5f));
 

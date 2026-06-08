@@ -35,7 +35,10 @@ bool UDropableCanvasWidget::NativeOnDrop(const FGeometry& InGeometry, const FDra
 	FVector2D widgetPosition = dropPosition - opper->dragOffset;
 
 	// 드래그 된 위젯의 위치 제한
-	FVector2D maxPosition = canvasGeometry.GetLocalSize() - opper->GetDraggedWidgetSize();
+	FVector2D maxPosition = canvasGeometry.GetLocalSize() - opper->widgetSizeDelta;
+
+	widgetPosition = FVector2D::Clamp(widgetPosition, FVector2D::ZeroVector, maxPosition);
+
 	widgetSlot->SetDesiredPosition(widgetPosition);
 	widgetSlot->SetAutoSize(true);
 

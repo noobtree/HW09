@@ -32,6 +32,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ExposeOnSpawn = "true", AllowPrivateAccess = "true"), Category = "DragDrop")
 	FVector2D dragOffset;
 
+	// 드래그 대상 위젯의 크기
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ExposeOnSpawn = "true", AllowPrivateAccess = "true"), Category = "DragDrop")
+	FVector2D widgetSizeDelta;
+
 	// Parent Widget before drag started
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (ExposeOnSpawn = "true", AllowPrivateAccess = "true"), Category = "DragDrop")
 	class UPanelWidget* undoParentWidget;

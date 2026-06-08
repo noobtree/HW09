@@ -84,7 +84,7 @@ bool ULocalWidgetManager::AddWidget(const TSubclassOf<UUserWidget>& widgetClass,
 
 bool ULocalWidgetManager::RemoveWidget(const TSubclassOf<UUserWidget>& widgetClass)
 {
-	// 등록하려는 Widget의 Class 유효성 확인
+	// 제거하려는 Widget의 Class 유효성 확인
 	if (IsValid(widgetClass) == true)
 	{
 		// Map에서 Key 값 제거 및 해당 클래스로 등록된 인스턴스 얻기

@@ -2,9 +2,13 @@
 
 
 #include "Player/ClientController.h"
+#include "GameFramework/PlayerState.h"
 #include "Blueprint/UserWidget.h"
+#include "EngineUtils.h"
 #include "SubSystems/LocalWidgetManager.h"
+#include "UI/BullsAndCowsMainCanvasWidget.h"
 #include "UI/WidgetAcceptable.h"
+#include "UI/ChatWidget.h"
 
 void AClientController::BeginPlay()
 {
@@ -25,15 +29,50 @@ void AClientController::BeginPlay()
 	ULocalWidgetManager* widgetManager = GetLocalPlayer()->GetSubsystem<ULocalWidgetManager>();
 	if (widgetManager != nullptr)
 	{
-		// Widget 생성
+		// MainCanvas Widget 생성
 		UUserWidget* mainCanvasWidgetInstance = widgetManager->FindOrAddWidget(mainCanvasWidgetClass);
-		UUserWidget* chatWidgetInstance = widgetManager->FindOrAddWidget(chatWidgetClass);
 
-		// 생성된 Widget 유효성 검사
-		if ((IsValid(mainCanvasWidgetInstance) & IsValid(chatWidgetInstance)) == true)
+		// Chat Widget 이벤트 연결
+		UBullsAndCowsMainCanvasWidget* mainCanvas = Cast<UBullsAndCowsMainCanvasWidget>(mainCanvasWidgetInstance);
+		//if (IsValid(mainCanvas->chatWidget) == true)
+		//{
+		//	mainCanvas->chatWidget->onMessageCommitted.AddDynamic(this, &AClientController::ServerRPC_OnMessageCommited);
+		//	OnMessageReceived.AddDynamic(mainCanvas->chatWidget, &UChatWidget::OnMessageReceived);
+		//}
+	}
+}
+
+void AClientController::BroadcastReceivedMessage(const FString& sender, const FString& message)
+{
+	UE_LOG(LogTemp, Display, TEXT("%s : %s"), *sender, *message);
+	if (OnMessageReceived.IsBound() == true)
+	{
+		OnMessageReceived.Broadcast(sender, message);
+	}
+}
+
+void AClientController::ClientRPC_OnMessageReceived_Implementation(const FString& sender, const FString& message)
+{
+	BroadcastReceivedMessage(sender, message);
+}
+
+void AClientController::ServerRPC_OnMessageCommited_Implementation(const FText& inputText)
+{
+	// 메시지 전송자의 이름 얻기
+	FString sender = PlayerState->GetPlayerName();
+
+	// 전송하려는 메시지를 FString으로 변환
+	FString message = inputText.ToString();
+
+	// 서버에 접속중인 다른 PlayerController들에게 메시지 전파
+	for (TActorIterator<AClientController> it = TActorIterator<AClientController>(GetWorld()); it; ++it)
+	{
+		// 클라이언트의 Controller 유효성 검사
+		AClientController* remoteController = *it;
+		if (IsValid(remoteController) == true)
 		{
-			// MainCanvas Widget에 Chat Widget 부착
-			IWidgetAcceptable::Execute_AddChildWidget(mainCanvasWidgetInstance, chatWidgetInstance);
+			// 메시지 수신 이벤트 실행
+			remoteController->ClientRPC_OnMessageReceived(sender, message);
 		}
 	}
 }
