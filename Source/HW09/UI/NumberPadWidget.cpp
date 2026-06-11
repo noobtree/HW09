@@ -2,8 +2,26 @@
 
 
 #include "NumberPadWidget.h"
-#include "Components/Button.h"
 #include "Components/TextBlock.h"
+#include "Components/CanvasPanelSlot.h"
+
+void UNumberPadWidget::NativeConstruct()
+{
+	Super::NativeConstruct();
+
+	// 초기 위치 조정
+	UCanvasPanelSlot* widgetSlot = Cast<UCanvasPanelSlot>(Slot);
+	if (widgetSlot != nullptr)
+	{
+
+		widgetSlot->SetAnchors(FAnchors(0.5f, 0.5f, 0.5f, 0.5f));
+		widgetSlot->SetAlignment(FVector2D(0.5f, 0.5f));
+		widgetSlot->SetPosition(FVector2D(0, 0));
+		widgetSlot->SetAutoSize(true);
+	}
+
+	SetLengthLimit(lengthLimit);
+}
 
 void UNumberPadWidget::OnNumberButtonClicked(int32 number)
 {
@@ -15,11 +33,9 @@ void UNumberPadWidget::OnNumberButtonClicked(int32 number)
 		{
 			// 문자열의 오른쪽 끝에 문자 추가
 			inputString.AppendInt(number);
-			
+
 			// TextBlock 업데이트
-			FString displayString = inputString.RightPad(lengthLimit);
-			displayString.ReplaceCharInline(' ', '_');
-			displayTextBlock->SetText(FText::FromString(displayString));
+			UpdateDisplayText(inputString);
 			return;
 		}
 
@@ -44,9 +60,27 @@ void UNumberPadWidget::OnBackspaceButtonClicked()
 	inputString.LeftChopInline(1);
 
 	// TextBlock 업데이트
-	//FString text = inputString + FString(lengthLimit - inputString.Len(), "_____");
-	//displayTextBlock->SetText(FText::FromString(text));
-	FString displayString = inputString.RightPad(lengthLimit);
+	UpdateDisplayText(inputString);
+}
+
+void UNumberPadWidget::SetLengthLimit(int32 limit)
+{
+	lengthLimit = limit;
+	inputString = TEXT("");
+	// TextBlock 업데이트
+	UpdateDisplayText(inputString);
+}
+
+void UNumberPadWidget::ClearTextBlock()
+{
+	inputString = TEXT("");
+	UpdateDisplayText(inputString);
+}
+
+void UNumberPadWidget::UpdateDisplayText(FString newString)
+{
+	// TextBlock 업데이트
+	FString displayString = newString.RightPad(lengthLimit);
 	displayString.ReplaceCharInline(' ', '_');
 	displayTextBlock->SetText(FText::FromString(displayString));
 }

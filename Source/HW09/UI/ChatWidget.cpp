@@ -2,26 +2,41 @@
 
 
 #include "ChatWidget.h"
+#include "Components/CanvasPanelSlot.h"
 #include "Components/EditableTextBox.h"
 #include "Components/HorizontalBox.h"
 #include "Components/ScrollBox.h"
 #include "Components/Button.h"
 #include "ChatLogWidget.h"
+#include "Player/ClientController.h"
 
 void UChatWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
 
-	if (IsValid(commitButton) == true)
-	{
-		//commitButton->OnClicked.AddDynamic(inputField, inputField->OnTextCommitted)
-	}
+	// 이벤트 연결
 	if (IsValid(inputField) == true)
 	{
 		if (inputField->OnTextCommitted.IsAlreadyBound(this, &UChatWidget::OnMessageCommitted) == false)
 		{
 			inputField->OnTextCommitted.AddDynamic(this, &UChatWidget::OnMessageCommitted);
 		}
+	}
+	if (IsValid(GetOwningPlayer()) == true)
+	{
+		AClientController* clientController = Cast<AClientController>(GetOwningPlayer());
+		clientController->OnMessageReceived.AddDynamic(this, &UChatWidget::OnMessageReceived);
+	}
+
+	// 초기 위치 조정
+	UCanvasPanelSlot* widgetSlot = Cast<UCanvasPanelSlot>(Slot);
+	if (widgetSlot != nullptr)
+	{
+		
+		widgetSlot->SetAnchors(FAnchors(0.f, 1.f, 0.f, 1.f));
+		widgetSlot->SetAlignment(FVector2D(0, 1));
+		widgetSlot->SetPosition(FVector2D(80, -45));
+		widgetSlot->SetAutoSize(true);
 	}
 }
 
@@ -36,18 +51,6 @@ void UChatWidget::NativeDestruct()
 	}
 
 	Super::NativeDestruct();
-}
-
-void UChatWidget::NativeOnMouseEnter(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
-{
-	Super::NativeOnMouseEnter(InGeometry, InMouseEvent);
-	//inputRowHorizontalBox->SetVisibility(ESlateVisibility::Visible);
-}
-
-void UChatWidget::NativeOnMouseLeave(const FPointerEvent& InMouseEvent)
-{
-	Super::NativeOnMouseLeave(InMouseEvent);
-	//inputRowHorizontalBox->SetVisibility(ESlateVisibility::Hidden);
 }
 
 UPanelSlot* UChatWidget::AddChildWidget_Implementation(UUserWidget* widget)
@@ -72,7 +75,7 @@ void UChatWidget::OnMessageCommitted(const FText& inputText, ETextCommit::Type c
 	{
 		if (onMessageCommitted.IsBound() == true)
 		{
-			onMessageCommitted.Broadcast(commitMessage);
+			onMessageCommitted.Broadcast(commitMessage.ToString());
 		}
 	}
 }

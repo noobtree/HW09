@@ -13,8 +13,33 @@ UCLASS()
 class HW09_API ABullsAndCowsGameStateBase : public AGameStateBase
 {
 	GENERATED_BODY()
+
+public:
+	ABullsAndCowsGameStateBase();
+
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
+protected:
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadWrite, Replicated, ReplicatedUsing = OnRep_IsGameOver)
+	bool bIsGameOver = false;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TSubclassOf<UUserWidget> gameResultWidgetClass;
 	
 public:
 	UFUNCTION(NetMulticast, Reliable)
-	void MulticastRPC_OnClientLogin(const FString& InNameString = FString(TEXT("XXXXXXXX")));
+	void Multicast_BroadcastAnnouncement(const FString& AnnounceMessage);
+
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_BroadcastBullsAndCowsGuess(const FString& guessString, const int32& bullCount, const int32& cowCount);
+
+	UFUNCTION(BlueprintCallable)
+	void ToggleGameOverState(bool bNewGameOver);
+
+	UFUNCTION()
+	FORCEINLINE bool IsGameOver() const { return bIsGameOver; }
+
+protected:
+	UFUNCTION()
+	void OnRep_IsGameOver();
 };

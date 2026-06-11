@@ -6,9 +6,6 @@
 #include "DropableCanvasWidget.h"
 #include "BullsAndCowsMainCanvasWidget.generated.h"
 
-class UChatWidget;
-class UNumberPadWidget;
-
 /**
  * 
  */

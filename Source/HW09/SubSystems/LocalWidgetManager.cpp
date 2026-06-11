@@ -2,119 +2,141 @@
 
 
 #include "SubSystems/LocalWidgetManager.h"
-#include "Blueprint/UserWidget.h"
 
 void ULocalWidgetManager::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
 }
 
-UUserWidget* ULocalWidgetManager::FindOrAddWidget(const TSubclassOf<UUserWidget>& widgetClass, int32 ZOrder)
+inline ULocalWidgetManager* ULocalWidgetManager::Get(const UObject* worldContextObject)
 {
-	// 찾으려는 Widget의 Class 유효성 확인
+	if (worldContextObject == nullptr)
+	{
+		return nullptr;
+	}
+
+	UWorld* world = worldContextObject->GetWorld();
+	if (world != nullptr)
+	{
+		APlayerController* firstPlayerController = world->GetFirstPlayerController();
+		if (firstPlayerController != nullptr)
+		{
+			ULocalPlayer* firstLocalPlayer = firstPlayerController->GetLocalPlayer();
+			if (firstLocalPlayer != nullptr)
+			{
+				return firstLocalPlayer->GetSubsystem<ULocalWidgetManager>();
+			}
+		}
+	}
+
+	return nullptr;
+}
+
+UUserWidget* ULocalWidgetManager::FindWidget(const FName& widgetName)
+{
+	// 키에 해당하는 Widget 정보가 존재하는지 확인
+	if (widgetMap.Contains(widgetName) == true)
+	{
+		UUserWidget* widgetInstance = widgetMap[widgetName];
+		return widgetInstance;
+	}
+	return nullptr;
+}
+
+UUserWidget* ULocalWidgetManager::AddWidget(const FName& widgetName, const TSubclassOf<UUserWidget>& widgetClass)
+{
+	// 생성하려는 Widget의 Class 유효성 확인
 	if (IsValid(widgetClass) == false)
 	{
 		return nullptr;
 	}
 
-	// 로컬 플레이어 객체 얻기
-	ULocalPlayer* localPlayer = GetLocalPlayer();
-	if (IsValid(localPlayer) == false)
+	// 동일 키로 등록된 Instance 찾기
+	UUserWidget* widgetInstance = FindWidget(widgetName);
+	
+	// 검색된 Instance 유효성 검사
+	if (IsValid(widgetInstance) == false)
+	{
+		// 로컬 플레이어 객체 유효성 검사
+		ULocalPlayer* localPlayer = GetLocalPlayer();
+		if (IsValid(localPlayer) == false)
+		{
+			// Widget 생성 불가
+			return nullptr;
+		}
+
+		// Instance 생성
+		widgetInstance = CreateWidget<UUserWidget>(localPlayer->PlayerController, widgetClass);
+
+		// 생성된 Instance nullptr 검사
+		if (widgetInstance == nullptr)
+		{
+			return nullptr;
+		}
+
+		// Map 등록
+		widgetMap.Add(widgetName, widgetInstance);
+	}
+
+	// 검색된 Instance와 생성하려는 Widget Class 비교
+	if (widgetInstance->IsA(widgetClass) == false)
 	{
 		return nullptr;
 	}
 
-	// 키에 해당하는 Widget 정보가 존재하는지 확인
-	UUserWidget*&& widgetInstance = widgetMap.FindOrAdd(widgetClass);
-	if (IsValid(widgetInstance) == false)
-	{
-		// Widget 인스턴스 생성
-		widgetInstance = CreateWidget<UUserWidget>(localPlayer->GetPlayerController(GetWorld()), widgetClass);
-
-		// 생성된 인스턴스 유효성 검사
-		if (IsValid(widgetInstance) == false)
-		{
-			// 유효하지 않은 키 삭제
-			widgetMap.Remove(widgetClass);
-			return nullptr;
-		}
-
-		// Viewport에 Widget 등록
-		widgetInstance->AddToPlayerScreen(ZOrder);
-	}
-
-	// Widget의 인스턴스 반환
+	// Instance 반환
 	return widgetInstance;
 }
 
-bool ULocalWidgetManager::AddWidget(const TSubclassOf<UUserWidget>& widgetClass, UUserWidget* widgetInstance)
+bool ULocalWidgetManager::AddWidgetInstance(const FName& widgetName, UUserWidget* widgetInstance)
 {
-	// 등록하려는 Widget의 Class 유효성 확인
-	if (IsValid(widgetClass) == true && widgetInstance != nullptr)
+	// 등록하려는 Instance nullptr 검사
+	if (widgetInstance == nullptr)
 	{
-		// 등록하려는 인스턴스의 클래스 검사
-		if (widgetInstance->IsA(widgetClass) == false)
-		{
-			return false;
-		}
-
-		// 기존에 등록되어있는 인스턴스가 존재하는지 확인
-		if (widgetMap.Contains(widgetClass) == false)
-		{
-			// Map에 Widget 등록
-			widgetMap.Add(widgetClass, widgetInstance);
-			return true;
-		}
-
-		// 기존에 등록되어있는 인스턴스 유효성 검사
-		UUserWidget* instance = widgetMap[widgetClass];
-		if (IsValid(instance) == false)
-		{
-			// 등록된 인스턴스 교체
-			widgetMap[widgetClass] = widgetInstance;
-			return true;
-		}
-
-		// 기존에 등록된 인스턴스와 새로 등록하려는 인스턴스의 동일성 검사
-		return instance == widgetInstance;
+		return false;
 	}
 
-	return false;
+	// 동일 키로 등록된 Instance 찾기
+	UUserWidget* existedInstance = FindWidget(widgetName);
+
+	// 기존 Instance의 유효성 검사
+	if (IsValid(existedInstance) == true)
+	{
+		// 기존 Instance와 신규 Instance 동일성 비교
+		return existedInstance == widgetInstance;
+	}
+
+	// 새로운 Instance 등록
+	widgetMap.Add(widgetName, widgetInstance);
+	return true;
 }
 
-bool ULocalWidgetManager::RemoveWidget(const TSubclassOf<UUserWidget>& widgetClass)
+bool ULocalWidgetManager::RemoveWidget(const FName& widgetName)
 {
-	// 제거하려는 Widget의 Class 유효성 확인
-	if (IsValid(widgetClass) == true)
+	// Map에서 Key 값 제거 및 Instance얻기
+	TObjectPtr<UUserWidget> widgetInstance;
+	if (widgetMap.RemoveAndCopyValue(widgetName, widgetInstance) == true)
 	{
-		// Map에서 Key 값 제거 및 해당 클래스로 등록된 인스턴스 얻기
-		UUserWidget* widgetInstance = widgetMap.FindAndRemoveChecked(widgetClass);
-
-		// 생성되어있는 인스턴스의 유효성 확인
+		// Instance의 유효성 확인
 		if (IsValid(widgetInstance) == true)
 		{
-			// 화면에서 Widget 제거
+			// 화면에서 Widget Instance 제거
 			widgetInstance->RemoveFromParent();
 		}
-		return true;
 	}
-	return false;
+	return true;
 }
 
-void ULocalWidgetManager::SetWidgetHiddenInGame(const TSubclassOf<UUserWidget>& widgetClass, bool bNewHidden)
+void ULocalWidgetManager::SetWidgetHiddenInGame(const FName& widgetName, bool bNewHidden)
 {
-	// 등록하려는 Widget의 Class 유효성 확인
-	if (IsValid(widgetClass) == true && widgetMap.Contains(widgetClass) == true)
-	{
-		// 인스턴스 불러오기
-		TObjectPtr<UUserWidget>& widgetInstance = widgetMap[widgetClass];
+	// 동일 키로 등록된 Instance 얻기
+	UUserWidget* widgetInstance = FindWidget(widgetName);
 
-		// 인스턴스 유효성 검사
-		if (IsValid(widgetInstance) == true)
-		{
-			// Visibility 속성 변경
-			widgetInstance->SetVisibility(bNewHidden == true ? ESlateVisibility::Collapsed : ESlateVisibility::Visible);
-		}
+	// Instance 유효성 검사
+	if (IsValid(widgetInstance) == true)
+	{
+		// Visibility 속성 변경
+		widgetInstance->SetVisibility(bNewHidden == true ? ESlateVisibility::Collapsed : ESlateVisibility::Visible);
 	}
 	return;
 }

@@ -4,9 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "Subsystems/LocalPlayerSubsystem.h"
+#include "Blueprint/UserWidget.h"
 #include "LocalWidgetManager.generated.h"
-
-class UUserWidget;
 
 /**
  * 
@@ -21,25 +20,36 @@ public:
 
 protected:
 	UPROPERTY(BlueprintReadWrite)
-	TMap<TSubclassOf<UUserWidget>, TObjectPtr<UUserWidget>> widgetMap;
+	TMap<FName, TObjectPtr<UUserWidget>> widgetMap;
 
 public:
-	// 임의 클래스에 해당하는 Widget의 인스턴스를 반환하는 함수
-	// 생성될 Widget의 Class가 유효하지 않으면 nullptr 반환
-	// Widget의 인스턴스가 존재하지 않으면 생성 후 반환
 	UFUNCTION(BlueprintCallable)
-	UUserWidget* FindOrAddWidget(const TSubclassOf<UUserWidget>& widgetClass, int32 ZOrder = 0);
+	static ULocalWidgetManager* Get(const UObject* worldContextObject);
 
-	// 임의 클래스에 해당하는 Widget의 Instance를 등록하는 함수
+	// 동일한 이름으로 등록된 Widget의 Instance를 반환하는 함수
+	// Instance가 존재하지 않으면 nullptr 반환
 	UFUNCTION(BlueprintCallable)
-	bool AddWidget(const TSubclassOf<UUserWidget>& widgetClass, UUserWidget* widgetInstance);
+	UUserWidget* FindWidget(const FName& widgetName);
 
+	// 동일한 이름으로 등록된 Widget의 Instance를 반환하는 함수
+	// Instance의 클래스가 WidgetClass로부터 파생되지 않으면 nullptr 반환
+	// Instance가 존재하지 않으면 WidgetClass를 통해 생성 및 등록 후 Instance 반환
 	UFUNCTION(BlueprintCallable)
-	bool RemoveWidget(const TSubclassOf<UUserWidget>& widgetClass);
+	UUserWidget* AddWidget(const FName& widgetName, const TSubclassOf<UUserWidget>& widgetClass);
 
+	// 임의 이름으로Widget의 Instance를 등록하는 함수
 	UFUNCTION(BlueprintCallable)
-	void SetWidgetHiddenInGame(const TSubclassOf<UUserWidget>& widgetClass, bool bNewHidden);
+	bool AddWidgetInstance(const FName& widgetName, UUserWidget* widgetInstance);
 
+	// 동일한 이름으로 등록된 Widget의 Instance를 제거하는 함수
+	UFUNCTION(BlueprintCallable)
+	bool RemoveWidget(const FName& widgetName);
+
+	// 임의 이름으로Widget의 Instance의 Visibility를 변경하는 함수
+	UFUNCTION(BlueprintCallable)
+	void SetWidgetHiddenInGame(const FName& widgetName, bool bNewHidden);
+
+	// 관리되는 전체 Widget Instance를 제거하는 함수
 	UFUNCTION(BlueprintCallable)
 	void ClearWidgetInGame();
 };

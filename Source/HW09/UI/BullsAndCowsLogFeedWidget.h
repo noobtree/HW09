@@ -15,6 +15,8 @@ class HW09_API UBullsAndCowsLogFeedWidget : public UUserWidget, public IWidgetAc
 {
 	GENERATED_BODY()
 	
+public:
+	virtual void NativeConstruct() override;
 
 protected:
 	// 추가되는 Widget의 클래스

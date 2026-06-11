@@ -14,12 +14,18 @@ UCLASS()
 class HW09_API UNumberPadWidget : public UDragableWidget
 {
 	GENERATED_BODY()
+
+public:
+	virtual void NativeConstruct() override;
 	
 protected:
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true", BindWidget))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true", BindWidget))
 	TObjectPtr<class UTextBlock> displayTextBlock;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true", BindWidgetOptional))
+	TObjectPtr<class UButton> commitButton;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	int32 lengthLimit;
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly)
 	FString inputString = "";
@@ -34,4 +40,13 @@ public:
 	UFUNCTION(BlueprintCallable)
 	virtual void OnBackspaceButtonClicked();
 
+	UFUNCTION(BlueprintCallable)
+	void SetLengthLimit(int32 limit);
+
+	UFUNCTION(BlueprintCallable)
+	void ClearTextBlock();
+
+protected:
+	UFUNCTION(BlueprintCallable)
+	void UpdateDisplayText(FString newString);
 };

@@ -2,13 +2,15 @@
 
 
 #include "Player/ClientController.h"
-#include "GameFramework/PlayerState.h"
 #include "Blueprint/UserWidget.h"
-#include "EngineUtils.h"
 #include "SubSystems/LocalWidgetManager.h"
-#include "UI/BullsAndCowsMainCanvasWidget.h"
-#include "UI/WidgetAcceptable.h"
-#include "UI/ChatWidget.h"
+#include "Components/WidgetControllable.h"
+#include "BullsAndCowsPlayerState.h"
+
+AClientController::AClientController()
+{
+	SetReplicates(true);
+}
 
 void AClientController::BeginPlay()
 {
@@ -30,49 +32,43 @@ void AClientController::BeginPlay()
 	if (widgetManager != nullptr)
 	{
 		// MainCanvas Widget 생성
-		UUserWidget* mainCanvasWidgetInstance = widgetManager->FindOrAddWidget(mainCanvasWidgetClass);
+		UUserWidget* mainCanvasWidgetInstance = widgetManager->AddWidget(FName("MainCanvas"), mainCanvasWidgetClass);
 
-		// Chat Widget 이벤트 연결
-		UBullsAndCowsMainCanvasWidget* mainCanvas = Cast<UBullsAndCowsMainCanvasWidget>(mainCanvasWidgetInstance);
-		//if (IsValid(mainCanvas->chatWidget) == true)
-		//{
-		//	mainCanvas->chatWidget->onMessageCommitted.AddDynamic(this, &AClientController::ServerRPC_OnMessageCommited);
-		//	OnMessageReceived.AddDynamic(mainCanvas->chatWidget, &UChatWidget::OnMessageReceived);
-		//}
+		// 화면에 MainCanvas Widget 추가<
+		mainCanvasWidgetInstance->AddToPlayerScreen();
+	}
+
+	TArray<UActorComponent*> widgetControlComponents = GetComponentsByInterface(UWidgetControllable::StaticClass());
+	for (UActorComponent* component : widgetControlComponents)
+	{
+		IWidgetControllable* widgetControlComponent = Cast<IWidgetControllable>(component);
+		if (widgetControlComponent != nullptr)
+		{
+			widgetControlComponent->InitializeControlWidget();
+		}
 	}
 }
 
-void AClientController::BroadcastReceivedMessage(const FString& sender, const FString& message)
+void AClientController::InitializeClientController()
 {
-	UE_LOG(LogTemp, Display, TEXT("%s : %s"), *sender, *message);
+	ABullsAndCowsPlayerState* clientState = GetPlayerState<ABullsAndCowsPlayerState>();
+	if (IsValid(clientState) == true)
+	{
+		clientState->TogglePlayerWinnerState(false);
+	}
+}
+
+void AClientController::Client_PullMessage_Implementation(const FString& senderString, const FString& messageString)
+{
+	// 서버 실행 방지
+	if (IsLocalController() == false)
+	{
+		return;
+	}
+
+	// 메시지 수신 이벤트 실행
 	if (OnMessageReceived.IsBound() == true)
 	{
-		OnMessageReceived.Broadcast(sender, message);
-	}
-}
-
-void AClientController::ClientRPC_OnMessageReceived_Implementation(const FString& sender, const FString& message)
-{
-	BroadcastReceivedMessage(sender, message);
-}
-
-void AClientController::ServerRPC_OnMessageCommited_Implementation(const FText& inputText)
-{
-	// 메시지 전송자의 이름 얻기
-	FString sender = PlayerState->GetPlayerName();
-
-	// 전송하려는 메시지를 FString으로 변환
-	FString message = inputText.ToString();
-
-	// 서버에 접속중인 다른 PlayerController들에게 메시지 전파
-	for (TActorIterator<AClientController> it = TActorIterator<AClientController>(GetWorld()); it; ++it)
-	{
-		// 클라이언트의 Controller 유효성 검사
-		AClientController* remoteController = *it;
-		if (IsValid(remoteController) == true)
-		{
-			// 메시지 수신 이벤트 실행
-			remoteController->ClientRPC_OnMessageReceived(sender, message);
-		}
+		OnMessageReceived.Broadcast(senderString, messageString);
 	}
 }

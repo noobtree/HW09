@@ -4,7 +4,21 @@
 #include "BullsAndCowsLogFeedWidget.h"
 #include "Components/ScrollBox.h"
 #include "Components/ScrollBoxSlot.h"
+#include "Components/CanvasPanelSlot.h"
 #include "BullsAndCowsLogWidget.h"
+
+void UBullsAndCowsLogFeedWidget::NativeConstruct()
+{
+	// 초기 위치 조정
+	UCanvasPanelSlot* widgetSlot = Cast<UCanvasPanelSlot>(Slot);
+	if (widgetSlot != nullptr)
+	{
+		widgetSlot->SetAnchors(FAnchors(1.0f, 0.f, 1.f, 0.f));
+		widgetSlot->SetAlignment(FVector2D(1, 0));
+		widgetSlot->SetPosition(FVector2D(-80, 45));
+		widgetSlot->SetAutoSize(true);
+	}
+}
 
 void UBullsAndCowsLogFeedWidget::AddBullsAndCowsLog(const FString& logText, const int32& bullCount, const int32& cowCount)
 {
@@ -15,13 +29,15 @@ void UBullsAndCowsLogFeedWidget::AddBullsAndCowsLog(const FString& logText, cons
 	logScrollBox->AddChild(logWidget);
 
 	// Cast
-	UBullsAndCowsLogWidget* castedLog = CreateWidget<UBullsAndCowsLogWidget>(GetOwningPlayer());
+	UBullsAndCowsLogWidget* castedLog = Cast<UBullsAndCowsLogWidget>(logWidget);
 	if (castedLog != nullptr)
 	{
 		// log Widget의 속성 값 설정
 		castedLog->SetLogText(logText);
 		castedLog->SetBullsAndCows(bullCount, cowCount);
 	}
+
+	logScrollBox->ScrollToEnd();
 }
 
 UPanelSlot* UBullsAndCowsLogFeedWidget::AddChildWidget_Implementation(UUserWidget* widget)

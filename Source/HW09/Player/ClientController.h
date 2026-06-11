@@ -6,7 +6,7 @@
 #include "GameFramework/PlayerController.h"
 #include "ClientController.generated.h"
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnChatReceivedSignature, const FString&, sender, const FString&, message);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnMessageReceivedSignature, const FString&, senderString, const FString&, messageString);
 
 /**
  * 
@@ -16,32 +16,24 @@ class HW09_API AClientController : public APlayerController
 {
 	GENERATED_BODY()
 	
+	AClientController();
+
 public:
 	virtual void BeginPlay() override;
 
 public:
 	UPROPERTY(BlueprintAssignable)
-	FOnChatReceivedSignature OnMessageReceived;
+	FOnMessageReceivedSignature OnMessageReceived;
 
 protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI")
 	TSubclassOf<UUserWidget> mainCanvasWidgetClass;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI")
-	TSubclassOf<UUserWidget> chatWidgetClass;
-
 public:
-	UFUNCTION(BlueprintCallable)
-	void BroadcastReceivedMessage(const FString& sender, const FString& message);
+	// 메시지를 수신하는 경우 Server에서 호출하여 Client에서 실행되는 함수
+	UFUNCTION(BlueprintCallable, Client, Reliable)
+	void Client_PullMessage(const FString& senderString, const FString& messageString);
 
 protected:
-	// Client에서 실행되는 함수
-	UFUNCTION(Client, Reliable)
-	void ClientRPC_OnMessageReceived(const FString& sender, const FString& message);
-	//void ClientRPC_OnMessageReceived_Implementation(const FString& sender, const FString& message);
-
-	// Server에서 실행되는 함수
-	UFUNCTION(Server, Reliable)
-	void ServerRPC_OnMessageCommited(const FText& inputText);
-	//void ServerRPC_OnMessageCommited_Implementation(const FText& inputText);
+	void InitializeClientController();
 };

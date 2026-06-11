@@ -23,12 +23,12 @@ protected:
 
 public:
 	UFUNCTION(BlueprintCallable)
-	void OnLifeCountChanged(int32 newLifeCount);
+	void InitializeLifeCount(int32 maxLifeCount);
 
 protected:
 	UFUNCTION(BlueprintCallable)
-	void InitializeLifeCount(int32 maxLifeCount);
+	void InitializeLifePointImageWidget(class UImage* lifePointWidget);
 
 	UFUNCTION(BlueprintCallable)
-	void InitializeLifePointWidget(class UImage* lifePointWidget);
+	void OnGuessCountChanged(const int32& remainGuessCount, const int32& maxGuessCount);
 };

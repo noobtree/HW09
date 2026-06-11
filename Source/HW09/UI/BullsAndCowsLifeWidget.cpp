@@ -6,27 +6,30 @@
 #include "Components/Image.h"
 #include "Components/HorizontalBox.h"
 #include "Components/HorizontalBoxSlot.h"
+#include "Components/CanvasPanelSlot.h"
+#include "Components/LifePointComponent.h"
 
 void UBullsAndCowsLifeWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
-}
 
-void UBullsAndCowsLifeWidget::OnLifeCountChanged(int32 newLifeCount)
-{
-	// 현재 LifePoint 목록 얻기
-	TArray<UWidget*> children = lifeHorizontalBox->GetAllChildren();
-	
-	for (int32 i = 0; i + newLifeCount < children.Num(); ++i)
+	UCanvasPanelSlot* widgetSlot = Cast<UCanvasPanelSlot>(Slot);
+	if (IsValid(widgetSlot) == true)
 	{
-		UImage* lifePoint = Cast<UImage>(children[i]);
-		if (lifePoint == nullptr)
-		{
-			UE_LOG(LogTemp, Error, TEXT("Widget Type for Inidicating LifePoint is Not UImage"));
-			return;
-		}
+		widgetSlot->SetAnchors(FAnchors(0.f, 0.0f, 0.0f, 0.0f));
+		widgetSlot->SetAlignment(FVector2D(0.0f, 0.0f));
+		widgetSlot->SetPosition(FVector2D(80, 45));
+		widgetSlot->SetAutoSize(true);
+	}
 
-		lifePoint->SetColorAndOpacity(FLinearColor::Red);
+	APlayerController* owningController = GetOwningPlayer();
+	if (IsValid(owningController) == true)
+	{
+		ULifePointComponent* component = owningController->FindComponentByClass<ULifePointComponent>();
+		if (IsValid(component) == true)
+		{
+			component->OnGuessCountChanged.AddDynamic(this, &UBullsAndCowsLifeWidget::OnGuessCountChanged);
+		}
 	}
 }
 
@@ -59,7 +62,7 @@ void UBullsAndCowsLifeWidget::InitializeLifeCount(int32 maxLifeCount)
 			}
 		}
 
-		InitializeLifePointWidget(lifePoint);
+		InitializeLifePointImageWidget(lifePoint);
 	}
 	
 	if (maxLifeCount < children.Num())
@@ -72,12 +75,34 @@ void UBullsAndCowsLifeWidget::InitializeLifeCount(int32 maxLifeCount)
 	}
 }
 
-void UBullsAndCowsLifeWidget::InitializeLifePointWidget(UImage* lifePointWidget)
+void UBullsAndCowsLifeWidget::InitializeLifePointImageWidget(UImage* lifePointWidget)
 {
 	lifePointWidget->SetVisibility(ESlateVisibility::Visible);
 	lifePointWidget->SetColorAndOpacity(FLinearColor::Black);
-	lifePointWidget->Brush.DrawAs = ESlateBrushDrawType::RoundedBox;
-	lifePointWidget->Brush.OutlineSettings.Color = FSlateColor(FLinearColor::White);
-	lifePointWidget->Brush.OutlineSettings.Width = 0.5f;
-	lifePointWidget->Brush.SetImageSize(FVector2D(45, 45));
+
+	FSlateBrush imageBrush = lifePointWidget->GetBrush();
+	imageBrush.DrawAs = ESlateBrushDrawType::RoundedBox;
+	imageBrush.OutlineSettings.Color = FSlateColor(FLinearColor::White);
+	imageBrush.OutlineSettings.Width = 0.5f;
+	imageBrush.SetImageSize(FVector2D(45, 45));
+
+	lifePointWidget->SetBrush(imageBrush);
+}
+
+void UBullsAndCowsLifeWidget::OnGuessCountChanged(const int32& remainGuessCount, const int32& maxGuessCount)
+{
+	// 현재 LifePoint 목록 얻기
+	TArray<UWidget*> children = lifeHorizontalBox->GetAllChildren();
+
+	for (int32 i = 0; i + remainGuessCount < children.Num(); ++i)
+	{
+		UImage* lifePoint = Cast<UImage>(children[i]);
+		if (lifePoint == nullptr)
+		{
+			UE_LOG(LogTemp, Error, TEXT("Widget Type for Inidicating LifePoint is Not UImage"));
+			return;
+		}
+
+		lifePoint->SetColorAndOpacity(FLinearColor::Red);
+	}
 }
