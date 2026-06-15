@@ -11,7 +11,6 @@
 ABullsAndCowsPlayerState::ABullsAndCowsPlayerState()
 {
 	SetReplicates(true);
-	bIsWinner = false;
 }
 
 void ABullsAndCowsPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -19,7 +18,6 @@ void ABullsAndCowsPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProper
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	// 프로퍼티 동기화
-	DOREPLIFETIME(ThisClass, bIsWinner);
 	DOREPLIFETIME(ThisClass, matchResult);
 }
 
@@ -31,22 +29,6 @@ void ABullsAndCowsPlayerState::SetMatchPlayerResult(EMatchResult playerResult)
 	}
 }
 
-void ABullsAndCowsPlayerState::TogglePlayerWinnerState(bool bNewIsWinner)
-{
-	// Client 실행 방지를 위한 Authority 확인
-	if (HasAuthority() == false)
-	{
-		return;
-	}
-
-	if (bIsWinner == bNewIsWinner)
-	{
-		return;
-	}
-
-	bIsWinner = bNewIsWinner;
-}
-
 void ABullsAndCowsPlayerState::InitializePlayerState()
 {
 	if (HasAuthority() == false)
@@ -55,14 +37,6 @@ void ABullsAndCowsPlayerState::InitializePlayerState()
 	}
 
 	matchResult = EMatchResult::NotFixed;
-}
-
-void ABullsAndCowsPlayerState::OnRep_IsWinner() const
-{
-	if (HasAuthority() == false)
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Black, TEXT("Winner Has Changed"));
-	}
 }
 
 void ABullsAndCowsPlayerState::OnRep_MatchResult()

@@ -85,24 +85,14 @@ void ABullsAndCowsGameModeBase::OnReceivedBullsAndCowsGuess(const APlayerControl
 		return;
 	}
 
+	// Bulls And Cow 판별
+	TPair<int32, int32> result = JudgeBullsAndCows(guessString);
+
+	// GameState를 통해 전체 클라이언트에게 전파
+	gamestate->Multicast_BroadcastBullsAndCowsGuess(guessString, result.Key, result.Value);
+
 	// 게임 종료 판정
-	bool bIsGameOver = false;
-	if (controller == nullptr)
-	{
-		// 게임 종료 판정
-		bIsGameOver = JudgeIsGameOver(controller, -1);
-	}
-	else
-	{
-		// Bulls And Cow 판별
-		TPair<int32, int32> result = JudgeBullsAndCows(guessString);
-
-		// GameState를 통해 전체 클라이언트에게 전파
-		gamestate->Multicast_BroadcastBullsAndCowsGuess(guessString, result.Key, result.Value);
-
-		// 게임 종료 판정
-		bIsGameOver = JudgeIsGameOver(controller, result.Key);
-	}
+	bool bIsGameOver = JudgeIsGameOver(controller, result.Key);
 
 	if (bIsGameOver == true)
 	{
@@ -237,7 +227,7 @@ void ABullsAndCowsGameModeBase::ConsumeGuessCount(const APlayerController* contr
 bool ABullsAndCowsGameModeBase::JudgeIsGameOver(const APlayerController* controller, const int32& bullCount)
 {
 	// 잘못된 개수를 입력받는 경우 Draw 판별 (체력 감소 없음)
-	if (bullCount < 0)
+	if (bullCount < 0 || controller == nullptr)
 	{
 		// 전체 클라이언트 무승부 처리
 		SetWinnerController(nullptr, false);

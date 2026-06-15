@@ -36,22 +36,16 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TSubclassOf<UUserWidget> matchResultWidgetClass;
 
-	UPROPERTY(VisibleInstanceOnly, BlueprintReadWrite, ReplicatedUsing = OnRep_IsWinner)
-	bool bIsWinner;
-
 public:
 	UFUNCTION()
 	void SetMatchPlayerResult(EMatchResult playerResult);
 
-	UFUNCTION()
-	void TogglePlayerWinnerState(bool bNewIsWinner);
+	UFUNCTION(BlueprintCallable)
+	FORCEINLINE FString GetMatchResultString() const { return UEnum::GetValueAsString(matchResult); }
 
 	void InitializePlayerState();
 
 protected:
-	UFUNCTION()
-	void OnRep_IsWinner() const;
-
 	UFUNCTION()
 	void OnRep_MatchResult();
 };

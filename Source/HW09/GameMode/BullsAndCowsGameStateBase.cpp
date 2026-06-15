@@ -11,13 +11,8 @@
 ABullsAndCowsGameStateBase::ABullsAndCowsGameStateBase()
 {
 	SetReplicates(true);
-	restartVotedCount = false;
 
-	ABullsAndCowsGameModeBase* gm = Cast<ABullsAndCowsGameModeBase>(AuthorityGameMode);
-	if (IsValid(gm) == true)
-	{
-		gm->StartTurnTimer();
-	}
+	IitializeGameState();
 }
 
 void ABullsAndCowsGameStateBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -69,6 +64,12 @@ void ABullsAndCowsGameStateBase::IitializeGameState()
 	bIsMatchEnd = false;
 	restartVotedCount = 0;
 	remainTime = 30;
+
+	ABullsAndCowsGameModeBase* gm = Cast<ABullsAndCowsGameModeBase>(AuthorityGameMode);
+	if (IsValid(gm) == true)
+	{
+		gm->StartTurnTimer();
+	}
 }
 
 void ABullsAndCowsGameStateBase::OnRep_SealedAnswerString()
