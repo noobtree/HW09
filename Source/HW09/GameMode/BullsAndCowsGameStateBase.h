@@ -6,6 +6,8 @@
 #include "GameFramework/GameStateBase.h"
 #include "BullsAndCowsGameStateBase.generated.h"
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FBullsAndCowsAnswerRevealedSignature, const FString&, RevealedAnswer);
+
 /**
  * 
  */
@@ -19,13 +21,26 @@ public:
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
-protected:
-	UPROPERTY(VisibleInstanceOnly, BlueprintReadWrite, Replicated, ReplicatedUsing = OnRep_IsGameOver)
-	bool bIsGameOver = false;
+public:
+	UPROPERTY(BlueprintAssignable, BlueprintReadWrite)
+	FBullsAndCowsAnswerRevealedSignature OnAnswerRevealed;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	TSubclassOf<UUserWidget> gameResultWidgetClass;
-	
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadWrite, ReplicatedUsing = OnRep_SealedAnswerString)
+	FString revealedAnswerString;
+
+protected:
+	// 게임이 종료되었는지 판별하는 변수
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadWrite, Replicated)
+	bool bIsMatchEnd;
+
+	// 재시작 투표 개수
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadWrite, Replicated)
+	int32 restartVotedCount;
+
+	// 1라운드 남은 시간
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadWrite, Replicated)
+	int32 remainTime = 30;
+
 public:
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_BroadcastAnnouncement(const FString& AnnounceMessage);
@@ -34,12 +49,33 @@ public:
 	void Multicast_BroadcastBullsAndCowsGuess(const FString& guessString, const int32& bullCount, const int32& cowCount);
 
 	UFUNCTION(BlueprintCallable)
-	void ToggleGameOverState(bool bNewGameOver);
+	void SetBullsAndCowsAnswer(const FString& bullsAndCowsAnswerString);
+
+	UFUNCTION(BlueprintCallable)
+	void DecreaseRemainTime(float deltaTime);
+
+	UFUNCTION(BlueprintCallable)
+	void SetRestartVoteCount(int32 newVoteCount);
+
+	UFUNCTION(BlueprintCallable)
+	void IitializeGameState();
+
+	UFUNCTION(BlueprintCallable)
+	FORCEINLINE bool IsGameOver() const { return bIsMatchEnd; }
+
+	UFUNCTION(BlueprintCallable)
+	FORCEINLINE int32 GetRemainTime() const { return remainTime; }
 
 	UFUNCTION()
-	FORCEINLINE bool IsGameOver() const { return bIsGameOver; }
+	FORCEINLINE FString GetRevealedAnswerString() const { return revealedAnswerString; }
 
 protected:
 	UFUNCTION()
-	void OnRep_IsGameOver();
+	void OnRep_SealedAnswerString();
+
+	UFUNCTION()
+	void OnRep_RemainTime();
+
+	UFUNCTION(BlueprintCallable, Server, Reliable)
+	void Server_SetGameTie();
 };

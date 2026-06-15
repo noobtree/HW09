@@ -34,6 +34,13 @@ public:
 	UFUNCTION(BlueprintCallable, Client, Reliable)
 	void Client_PullMessage(const FString& senderString, const FString& messageString);
 
+	UFUNCTION(BlueprintCallable, Server, Reliable)
+	void Server_VoteRestart();
+
+	UFUNCTION()
+	void InitializeClient();
+
 protected:
-	void InitializeClientController();
+	UFUNCTION(Client, Reliable)
+	void Client_InitializeWidget();
 };

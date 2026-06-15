@@ -6,8 +6,6 @@
 #include "GameFramework/GameModeBase.h"
 #include "BullsAndCowsGameModeBase.generated.h"
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnGameInitializedSignature);
-
 /**
  * 
  */
@@ -24,10 +22,6 @@ protected:
 
 	virtual void Logout(AController* Exiting) override;
 
-public:
-	UPROPERTY(BlueprintAssignable)
-	FOnGameInitializedSignature OnGameInitialized;
-
 protected:
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly)
 	FString answer;
@@ -35,10 +29,21 @@ protected:
 	UPROPERTY()
 	TArray<TWeakObjectPtr<class AClientController>> connectedClients;
 
+	UPROPERTY()
+	TArray<TWeakObjectPtr<class APlayerController>> restartVotedClients;
+
+	FTimerHandle turnTimer;
+
 public:
 	void OnReceivedBullsAndCowsGuess(const APlayerController* controller, const FString& guessString);
-
+	
 	void InitializeBullsAndCowsGame();
+
+	void VoteToRestart(APlayerController* controller);
+
+	void StartTurnTimer();
+
+	void StopTurnTimer();
 
 protected:
 	// Bulls And Cows의 정답에 해당하는 임의 문자열을 생성하는 함수
@@ -50,4 +55,6 @@ protected:
 	void ConsumeGuessCount(const APlayerController* controller);
 
 	bool JudgeIsGameOver(const APlayerController* controller, const int32& bullCount);
+
+	void SetWinnerController(const APlayerController* controller, bool bisWinner);
 };

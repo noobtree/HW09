@@ -6,61 +6,84 @@
 #include "Player/ClientController.h"
 #include "SubSystems/LocalWidgetManager.h"
 #include "UI/BullsAndCowsLogFeedWidget.h"
+#include "GameMode/BullsAndCowsGameModeBase.h"
 
 ABullsAndCowsGameStateBase::ABullsAndCowsGameStateBase()
 {
 	SetReplicates(true);
+	restartVotedCount = false;
+
+	ABullsAndCowsGameModeBase* gm = Cast<ABullsAndCowsGameModeBase>(AuthorityGameMode);
+	if (IsValid(gm) == true)
+	{
+		gm->StartTurnTimer();
+	}
 }
 
 void ABullsAndCowsGameStateBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME(ThisClass, bIsGameOver);
+	DOREPLIFETIME(ThisClass, bIsMatchEnd);
+	DOREPLIFETIME(ThisClass, revealedAnswerString);
+	DOREPLIFETIME(ThisClass, remainTime);
+	DOREPLIFETIME(ThisClass, restartVotedCount);
 }
 
-void ABullsAndCowsGameStateBase::ToggleGameOverState(bool bNewGameOver)
+void ABullsAndCowsGameStateBase::SetBullsAndCowsAnswer(const FString& bullsAndCowsAnswerString)
 {
-	// Client 실행 방지를 위한 Authority 확인
+	// 클라이언트 환경 실행 방지를 위한 Authority 확인
 	if (HasAuthority() == false)
 	{
 		return;
 	}
 
-	if (bIsGameOver == bNewGameOver)
-	{
-		return;
-	}
-
-	bIsGameOver = bNewGameOver;
+	revealedAnswerString = bullsAndCowsAnswerString;
+	bIsMatchEnd = bullsAndCowsAnswerString.IsEmpty() ? false : true;
 }
 
-void ABullsAndCowsGameStateBase::OnRep_IsGameOver()
+void ABullsAndCowsGameStateBase::DecreaseRemainTime(float deltaTime)
 {
-	// 서버 환경 실행 방지를 위한 Authority 확인
 	if (HasAuthority() == true)
+	{
+		remainTime -= deltaTime;
+	}
+}
+
+void ABullsAndCowsGameStateBase::SetRestartVoteCount(int32 newVoteCount)
+{
+	if (HasAuthority() == true)
+	{
+		restartVotedCount = newVoteCount;
+	}
+}
+
+void ABullsAndCowsGameStateBase::IitializeGameState()
+{
+	// 클라이언트 환경 실행 방지를 위한 Authority 확인
+	if (HasAuthority() == false)
 	{
 		return;
 	}
 
-	// UI 매니저 얻기
-	ULocalWidgetManager* widgetManager = ULocalWidgetManager::Get(this);
+	revealedAnswerString = TEXT("");
+	bIsMatchEnd = false;
+	restartVotedCount = 0;
+	remainTime = 30;
+}
 
-	// Player Screen 초기화
-	widgetManager->ClearWidgetInGame();
-
-	// 게임 종료 시
-	if (bIsGameOver == true)
+void ABullsAndCowsGameStateBase::OnRep_SealedAnswerString()
+{
+	if (revealedAnswerString.IsEmpty() == false)
 	{
-		// 게임 결과 UI 생성 및 화면에 출력
-		if (IsValid(gameResultWidgetClass) == true)
-		{
-			UUserWidget* gameResultWidget = widgetManager->AddWidget(FName("GameResult"), gameResultWidgetClass);
-			gameResultWidget->AddToPlayerScreen();
-		}
-		else
-		{
-			GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::Red, TEXT("!!    GameOver    !!"));
-		}
+		OnAnswerRevealed.Broadcast(revealedAnswerString);
+	}
+}
+
+void ABullsAndCowsGameStateBase::OnRep_RemainTime()
+{
+	if (remainTime <= 0)
+	{
+		Server_SetGameTie();
 	}
 }
 
@@ -102,5 +125,20 @@ void ABullsAndCowsGameStateBase::Multicast_BroadcastBullsAndCowsGuess_Implementa
 	{
 		// Bulls And Cows 추정 결과를 나타내는 UI 추가
 		logFeedWidget->AddBullsAndCowsLog(guessString, bullCount, cowCount);
+	}
+}
+
+void ABullsAndCowsGameStateBase::Server_SetGameTie_Implementation()
+{
+	if (HasAuthority() == false)
+	{
+		return;
+	}
+
+	ABullsAndCowsGameModeBase* gm = Cast<ABullsAndCowsGameModeBase>(AuthorityGameMode);
+	if (IsValid(gm) == true)
+	{
+		// nullptr를 통해 게임 판정 진행
+		gm->OnReceivedBullsAndCowsGuess(nullptr, TEXT(""));
 	}
 }

@@ -85,46 +85,105 @@ void ABullsAndCowsGameModeBase::OnReceivedBullsAndCowsGuess(const APlayerControl
 		return;
 	}
 
-	// Bulls And Cow 판별
-	TPair<int32, int32> result = JudgeBullsAndCows(guessString);
-
-	// GameState를 통해 전체 클라이언트에게 전파
-	gamestate->Multicast_BroadcastBullsAndCowsGuess(guessString, result.Key, result.Value);
-
 	// 게임 종료 판정
-	bool bIsGameOver = JudgeIsGameOver(controller, result.Key);
-	
+	bool bIsGameOver = false;
+	if (controller == nullptr)
+	{
+		// 게임 종료 판정
+		bIsGameOver = JudgeIsGameOver(controller, -1);
+	}
+	else
+	{
+		// Bulls And Cow 판별
+		TPair<int32, int32> result = JudgeBullsAndCows(guessString);
+
+		// GameState를 통해 전체 클라이언트에게 전파
+		gamestate->Multicast_BroadcastBullsAndCowsGuess(guessString, result.Key, result.Value);
+
+		// 게임 종료 판정
+		bIsGameOver = JudgeIsGameOver(controller, result.Key);
+	}
+
 	if (bIsGameOver == true)
 	{
+		// 타이머 중지
+		StopTurnTimer();
+
+		// 정답 공개 (Replicated) 및 게임 종료 상태 변경
+		gamestate->SetBullsAndCowsAnswer(answer);
+
 		// 월드에 접속한 모든 클라이언트에게 게임 종료 알림 전파
 		FString announceMessage = FString::Printf(TEXT("# Game Set - Winner : "), *controller->PlayerState->GetPlayerName());
 		gamestate->Multicast_BroadcastAnnouncement(announceMessage);
-
-		// 게임 종료 상태를 GameState의 프로퍼티에 적용
-		gamestate->ToggleGameOverState(bIsGameOver);
 	}
 }
 
 void ABullsAndCowsGameModeBase::InitializeBullsAndCowsGame()
 {
-	ABullsAndCowsGameStateBase* gamestate = GetGameState<ABullsAndCowsGameStateBase>();
-	if (IsValid(gamestate) == false || gamestate->IsGameOver() == false)
+	// GameState가 유효하고, 게임이 종료된 상태인지 확인
+	ABullsAndCowsGameStateBase* gs = GetGameState<ABullsAndCowsGameStateBase>();
+	if (IsValid(gs) == false || gs->IsGameOver() == false)
 	{
 		return;
 	}
+	// 재시작 투표자 목록 초기화
+	restartVotedClients.Empty();
 
 	// 새로운 정답 생성
 	answer = GenerateRandomBullsAndCowsAnswer();
 	UE_LOG(LogTemp, Warning, TEXT("BullsAndCows Answer : %s"), *answer);
 
-	// 게임 초기화 이벤트 실행
-	if (OnGameInitialized.IsBound() == true)
+	gs->IitializeGameState();
+
+	for (TWeakObjectPtr<AClientController>& client : connectedClients)
 	{
-		OnGameInitialized.Broadcast();
+		if (client.IsValid() == false)
+		{
+			continue;
+		}
+
+		client->InitializeClient();
 	}
 
-	// GameState에 정의된 게임 상태를 초기 상태로 설정
-	gamestate->ToggleGameOverState(false);
+}
+
+void ABullsAndCowsGameModeBase::VoteToRestart(APlayerController* controller)
+{
+	// 기존 투표자 확인
+	if (restartVotedClients.Contains(controller) == false)
+	{
+		restartVotedClients.Add(controller);
+	}
+
+	// 접속한 클라이언트 수와 같으면 재시작
+	if (restartVotedClients.Num() == connectedClients.Num())
+	{
+		InitializeBullsAndCowsGame();
+	}
+}
+
+void ABullsAndCowsGameModeBase::StartTurnTimer()
+{
+	ABullsAndCowsGameStateBase* gs = GetGameState<ABullsAndCowsGameStateBase>();
+	if (IsValid(gs) == false || gs->IsGameOver() == true)
+	{
+		return;
+	}
+
+	FTimerDelegate delegator = FTimerDelegate::CreateUObject(gs, &ABullsAndCowsGameStateBase::DecreaseRemainTime, 1.f);
+
+	GetWorldTimerManager().SetTimer(turnTimer, delegator, 1, true, 0);
+}
+
+void ABullsAndCowsGameModeBase::StopTurnTimer()
+{
+	ABullsAndCowsGameStateBase* gs = GetGameState<ABullsAndCowsGameStateBase>();
+	if (IsValid(gs) == false)
+	{
+		return;
+	}
+
+	GetWorldTimerManager().ClearTimer(turnTimer);
 }
 
 FString ABullsAndCowsGameModeBase::GenerateRandomBullsAndCowsAnswer()
@@ -177,15 +236,20 @@ void ABullsAndCowsGameModeBase::ConsumeGuessCount(const APlayerController* contr
 
 bool ABullsAndCowsGameModeBase::JudgeIsGameOver(const APlayerController* controller, const int32& bullCount)
 {
+	// 잘못된 개수를 입력받는 경우 Draw 판별 (체력 감소 없음)
+	if (bullCount < 0)
+	{
+		// 전체 클라이언트 무승부 처리
+		SetWinnerController(nullptr, false);
+		return true;
+	}
+
 	// Bull (Strike) 개수 확인
 	if (bullCount == 4)
 	{
-		// 클라이언트 상태를 우승자로 설정
-		ABullsAndCowsPlayerState* clientState = controller->GetPlayerState<ABullsAndCowsPlayerState>();
-		if (IsValid(clientState) == true)
-		{
-			clientState->TogglePlayerWinnerState(true);
-		}
+		// 해당 컨트롤러 우승 처리
+		SetWinnerController(controller, true);
+
 		return true;
 	}
 
@@ -199,22 +263,45 @@ bool ABullsAndCowsGameModeBase::JudgeIsGameOver(const APlayerController* control
 		// 남은 체력 확인
 		if (lifeComponent->GetRemainGuessCount() <= 0)
 		{
-			// 해당 클라이언트를 제외한 다른 클라이언트의 상태를 우승자로 설정
-			for (TWeakObjectPtr<AClientController>& client : connectedClients)
-			{
-				if(client.IsValid() == true && client.Get() != controller)
-				{
-					ABullsAndCowsPlayerState* otherClientState = client->GetPlayerState<ABullsAndCowsPlayerState>();
-					if (IsValid(otherClientState) == true)
-					{
-						otherClientState->TogglePlayerWinnerState(true);
-					}
-				}
-			}
+			// 해당 컨트롤러 패배 처리
+			SetWinnerController(controller, false);
 			
 			return true;
 		}
 	}
 
 	return false;
+}
+
+void ABullsAndCowsGameModeBase::SetWinnerController(const APlayerController* controller, bool bisWinner)
+{
+	for (TWeakObjectPtr<AClientController>& client : connectedClients)
+	{
+		if (client.IsValid() == false)
+		{
+			continue;
+		}
+
+		ABullsAndCowsPlayerState* otherClientState = client->GetPlayerState<ABullsAndCowsPlayerState>();
+		if (IsValid(otherClientState) == false)
+		{
+			continue;
+		}
+
+		if (controller == nullptr)
+		{
+			otherClientState->SetMatchPlayerResult(EMatchResult::Tie);
+		}
+		else
+		{
+			if (client.Get() != controller)
+			{
+				otherClientState->SetMatchPlayerResult(bisWinner == true ? EMatchResult::Defeat : EMatchResult::Victory);
+			}
+			else
+			{
+				otherClientState->SetMatchPlayerResult(bisWinner == true ? EMatchResult::Victory : EMatchResult::Defeat);
+			}
+		}
+	}
 }
